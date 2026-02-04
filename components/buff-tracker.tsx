@@ -5,7 +5,7 @@ import {
   DEBUFFS,
   CLASS_COLORS,
   type Spec,
-  type Buff,
+  type BuffOrDebuff,
 } from "@/lib/tbc-data"
 import { cn } from "@/lib/utils"
 import { Check, X, Sparkles, Target, Info } from "lucide-react"
@@ -19,6 +19,7 @@ import {
 
 interface BuffTrackerProps {
   roster: Spec[]
+  groups: (Spec | null)[][]
 }
 
 function BuffCard({
@@ -27,7 +28,7 @@ function BuffCard({
   providers,
   isDebuff = false,
 }: {
-  buff: Buff
+  buff: BuffOrDebuff
   isCovered: boolean
   providers: Spec[]
   isDebuff?: boolean
@@ -145,17 +146,24 @@ function BuffCard({
 import { SPECS } from "@/lib/tbc-data"
 const SPECS_MAP = Object.fromEntries(SPECS.map(s => [s.id, s]))
 
-export function BuffTracker({ roster }: BuffTrackerProps) {
-  const { coveredBuffs, coveredDebuffs, buffProviders, debuffProviders } =
+export function BuffTracker({ roster, groups }: BuffTrackerProps) {
+  const [selectedView, setSelectedView] = useState<"raid" | "groups">("raid")
+  
+  const { coveredBuffs, coveredDebuffs, buffProviders, debuffProviders, raidBuffs, partyBuffs } =
     useMemo(() => {
       const buffSet = new Set<string>()
       const debuffSet = new Set<string>()
       const buffProv: Record<string, Spec[]> = {}
       const debuffProv: Record<string, Spec[]> = {}
+      const raid = new Set<string>()
+      const party = new Set<string>()
 
       for (const spec of roster) {
         for (const buffId of spec.buffs) {
           buffSet.add(buffId)
+          const buff = BUFFS.find(b => b.id === buffId)
+          if (buff?.scope === "raid") raid.add(buffId)
+          if (buff?.scope === "party") party.add(buffId)
           if (!buffProv[buffId]) buffProv[buffId] = []
           buffProv[buffId].push(spec)
         }
@@ -171,76 +179,198 @@ export function BuffTracker({ roster }: BuffTrackerProps) {
         coveredDebuffs: debuffSet,
         buffProviders: buffProv,
         debuffProviders: debuffProv,
+        raidBuffs: raid,
+        partyBuffs: party,
       }
     }, [roster])
 
+  // Calculate per-group buff coverage
+  const groupBuffCoverage = useMemo(() => {
+    return groups.map((group) => {
+      const groupSpecs = group.filter((s): s is Spec => s !== null)
+      const partyBuffSet = new Set<string>()
+      
+      groupSpecs.forEach(spec => {
+        spec.buffs.forEach(buffId => {
+          const buff = BUFFS.find(b => b.id === buffId)
+          if (buff?.scope === "party") {
+            partyBuffSet.add(buffId)
+          }
+        })
+      })
+      
+      return {
+        specs: groupSpecs,
+        partyBuffs: partyBuffSet,
+        coverage: partyBuffs.size > 0 ? Math.round((partyBuffSet.size / partyBuffs.size) * 100) : 100
+      }
+    })
+  }, [groups, partyBuffs.size])
+
   const buffCoverage = Math.round((coveredBuffs.size / BUFFS.length) * 100)
   const debuffCoverage = Math.round((coveredDebuffs.size / DEBUFFS.length) * 100)
+  const raidBuffsList = BUFFS.filter(b => b.scope === "raid")
+  const partyBuffsList = BUFFS.filter(b => b.scope === "party")
 
   return (
     <div className="space-y-6">
-      {/* Buffs Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            Raid Buffs
-          </h2>
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-24 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary transition-all duration-300"
-                style={{ width: `${buffCoverage}%` }}
-              />
-            </div>
-            <span className="text-sm text-muted-foreground">
-              {coveredBuffs.size}/{BUFFS.length}
-            </span>
-          </div>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {BUFFS.map((buff) => (
-            <BuffCard
-              key={buff.id}
-              buff={buff}
-              isCovered={coveredBuffs.has(buff.id)}
-              providers={buffProviders[buff.id] || []}
-            />
-          ))}
-        </div>
+      {/* View Toggle */}
+      <div className="flex items-center gap-2 border-b border-border pb-4">
+        <button
+        type="button"
+          onClick={() => setSelectedView("raid")}
+          className={cn(
+            "px-4 py-2 rounded-md text-sm font-medium transition-colors",
+            selectedView === "raid"
+              ? "bg-primary text-primary-foreground"
+              : "bg-transparent text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Raid-Wide Buffs
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedView("groups")}
+          className={cn(
+            "px-4 py-2 rounded-md text-sm font-medium transition-colors",
+            selectedView === "groups"
+              ? "bg-primary text-primary-foreground"
+              : "bg-transparent text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Group Buffs
+        </button>
       </div>
 
-      {/* Debuffs Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <Target className="h-5 w-5 text-destructive" />
-            Debuffs on Boss
-          </h2>
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-24 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-destructive transition-all duration-300"
-                style={{ width: `${debuffCoverage}%` }}
-              />
+      {selectedView === "raid" ? (
+        <>
+          {/* Raid Buffs Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                Raid-Wide Buffs
+              </h2>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-24 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-300"
+                    style={{ width: `${Math.round((raidBuffs.size / raidBuffsList.length) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  {raidBuffs.size}/{raidBuffsList.length}
+                </span>
+              </div>
             </div>
-            <span className="text-sm text-muted-foreground">
-              {coveredDebuffs.size}/{DEBUFFS.length}
-            </span>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {raidBuffsList.map((buff) => (
+                <BuffCard
+                  key={buff.id}
+                  buff={buff}
+                  isCovered={coveredBuffs.has(buff.id)}
+                  providers={buffProviders[buff.id] || []}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {DEBUFFS.map((debuff) => (
-            <BuffCard
-              key={debuff.id}
-              buff={debuff}
-              isCovered={coveredDebuffs.has(debuff.id)}
-              providers={debuffProviders[debuff.id] || []}
-              isDebuff
-            />
-          ))}
-        </div>
-      </div>
+
+          {/* Debuffs Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Target className="h-5 w-5 text-destructive" />
+                Debuffs on Boss
+              </h2>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-24 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-destructive transition-all duration-300"
+                    style={{ width: `${debuffCoverage}%` }}
+                  />
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  {coveredDebuffs.size}/{DEBUFFS.length}
+                </span>
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {DEBUFFS.map((debuff) => (
+                <BuffCard
+                  key={debuff.id}
+                  buff={debuff}
+                  isCovered={coveredDebuffs.has(debuff.id)}
+                  providers={debuffProviders[debuff.id] || []}
+                  isDebuff
+                />
+              ))}
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Group-Specific Buffs */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                Party-Wide Buffs (Group-Specific)
+              </h2>
+            </div>
+            
+            {groups.map((group, groupIndex) => {
+              const groupSpecs = group.filter((s): s is Spec => s !== null)
+              if (groupSpecs.length === 0) return null
+              
+              const groupPartyBuffs = new Set<string>()
+              groupSpecs.forEach(spec => {
+                spec.buffs.forEach(buffId => {
+                  const buff = BUFFS.find(b => b.id === buffId)
+                  if (buff?.scope === "party") {
+                    groupPartyBuffs.add(buffId)
+                  }
+                })
+              })
+              
+              const groupCoverage = partyBuffsList.length > 0 
+                ? Math.round((groupPartyBuffs.size / partyBuffsList.length) * 100)
+                : 100
+              
+              return (
+                <div key={Math.random()} className="space-y-3">
+                  <div className="flex items-center justify-between px-2">
+                    <h3 className="font-medium text-foreground">Group {groupIndex + 1}</h3>
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-20 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary transition-all duration-300"
+                          style={{ width: `${groupCoverage}%` }}
+                        />
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {groupPartyBuffs.size}/{partyBuffsList.length}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 pl-4 border-l-2 border-border/50">
+                    {partyBuffsList.map((buff) => {
+                      const providers = groupSpecs.filter(spec => spec.buffs.includes(buff.id))
+                      return (
+                        <BuffCard
+                          key={`${groupIndex}-${buff.id}`}
+                          buff={buff}
+                          isCovered={groupPartyBuffs.has(buff.id)}
+                          providers={providers}
+                        />
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
     </div>
   )
 }

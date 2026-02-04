@@ -33,6 +33,7 @@ export function ClassSelector({ onAddSpec }: ClassSelectorProps) {
           const isOpen = openClass === wowClass
           
           return (
+            // biome-ignore lint/a11y/noStaticElementInteractions: <IGNORE>
             <div 
               key={wowClass} 
               className="relative"

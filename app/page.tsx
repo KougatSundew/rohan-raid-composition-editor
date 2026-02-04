@@ -2,28 +2,76 @@
 
 import { useState, useRef } from "react"
 import { ClassSelector } from "@/components/class-selector"
-import { RaidRoster } from "@/components/raid-roster"
 import { BuffTracker } from "@/components/buff-tracker"
+import { GroupManager } from "@/components/group-manager"
 import { type Spec, BUFFS, DEBUFFS, SPECS } from "@/lib/tbc-data"
 import { Button } from "@/components/ui/button"
 import { Trash2, RotateCcw, Sword, Download, Upload } from "lucide-react"
 
 export default function RaidCompEditor() {
-  const [roster, setRoster] = useState<Spec[]>([])
+  // Groups structure: array of 5 groups, each containing up to 5 players
+  const [groups, setGroups] = useState<(Spec | null)[][]>(
+    Array(5).fill(null).map(() => Array(5).fill(null))
+  )
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Flatten groups to get roster for compatibility
+  const roster = groups.flat().filter((spec): spec is Spec => spec !== null)
 
   const handleAddSpec = (spec: Spec) => {
     if (roster.length < 25) {
-      setRoster([...roster, spec])
+      // Find first empty slot in any group
+      const newGroups = [...groups]
+      for (let groupIndex = 0; groupIndex < 5; groupIndex++) {
+        for (let slotIndex = 0; slotIndex < 5; slotIndex++) {
+          if (newGroups[groupIndex][slotIndex] === null) {
+            newGroups[groupIndex][slotIndex] = spec
+            setGroups(newGroups)
+            return
+          }
+        }
+      }
     }
   }
 
-  const handleRemove = (index: number) => {
-    setRoster(roster.filter((_, i) => i !== index))
+  const handleRemove = (groupIndex: number, slotIndex: number) => {
+    const newGroups = [...groups]
+    newGroups[groupIndex][slotIndex] = null
+    setGroups(newGroups)
   }
 
   const handleClear = () => {
-    setRoster([])
+    setGroups(Array(5).fill(null).map(() => Array(5).fill(null)))
+  }
+
+  const handleMoveToGroup = (specIndex: number, targetGroupIndex: number, targetSlotIndex: number) => {
+    // Find the spec in current groups
+    let sourceGroupIndex = -1
+    let sourceSlotIndex = -1
+    
+    for (let gi = 0; gi < groups.length; gi++) {
+      const si = groups[gi].findIndex((s, idx) => {
+        const currentIndex = gi * 5 + idx
+        return currentIndex === specIndex && s !== null
+      })
+      if (si !== -1) {
+        sourceGroupIndex = gi
+        sourceSlotIndex = si
+        break
+      }
+    }
+
+    if (sourceGroupIndex === -1) return
+
+    const newGroups = [...groups.map(g => [...g])]
+    const spec = newGroups[sourceGroupIndex][sourceSlotIndex]
+    
+    // Swap if target has a spec, otherwise just move
+    const targetSpec = newGroups[targetGroupIndex][targetSlotIndex]
+    newGroups[targetGroupIndex][targetSlotIndex] = spec
+    newGroups[sourceGroupIndex][sourceSlotIndex] = targetSpec
+    
+    setGroups(newGroups)
   }
 
   const handleExport = () => {
@@ -63,11 +111,20 @@ export default function RaidCompEditor() {
             .map((specId: string) => SPECS.find(s => s.id === specId))
             .filter((spec): spec is Spec => spec !== undefined)
           
-          setRoster(reconstructedRoster)
+          // Place specs into groups
+          const newGroups = Array(5).fill(null).map(() => Array(5).fill(null))
+          reconstructedRoster.forEach((spec: Spec, index: number) => {
+            const groupIndex = Math.floor(index / 5)
+            const slotIndex = index % 5
+            if (groupIndex < 5) {
+              newGroups[groupIndex][slotIndex] = spec
+            }
+          })
+          setGroups(newGroups)
         } else {
           alert("Invalid roster file format")
         }
-      } catch (error) {
+      } catch {
         alert("Error reading file. Please ensure it's a valid JSON file.")
       }
     }
@@ -146,10 +203,6 @@ export default function RaidCompEditor() {
               <ClassSelector onAddSpec={handleAddSpec} />
             </div>
 
-            <div className="bg-card border border-border rounded-lg p-4">
-              <RaidRoster roster={roster} onRemove={handleRemove} />
-            </div>
-
             {/* Import/Export Section */}
             <div className="bg-card border border-border rounded-lg p-4">
               <h2 className="text-lg font-semibold text-foreground mb-3">
@@ -185,22 +238,36 @@ export default function RaidCompEditor() {
           </aside>
 
           {/* Main Content Area */}
-          <div className="bg-card border border-border rounded-lg p-4">
+          <div className="space-y-6">
             {roster.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
-                <div className="h-16 w-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-                  <RotateCcw className="h-8 w-8 text-muted-foreground" />
+              <div className="bg-card border border-border rounded-lg p-4">
+                <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
+                  <div className="h-16 w-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                    <RotateCcw className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-medium text-foreground mb-2">
+                    No Raid Members Added
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-sm">
+                    Hover over a class on the left and select a spec to add raid
+                    members. Organize them into groups and track buff coverage.
+                  </p>
                 </div>
-                <h3 className="text-lg font-medium text-foreground mb-2">
-                  No Raid Members Added
-                </h3>
-                <p className="text-sm text-muted-foreground max-w-sm">
-                  Hover over a class on the left and select a spec to add raid
-                  members. Track which buffs and debuffs your composition covers.
-                </p>
               </div>
             ) : (
-              <BuffTracker roster={roster} />
+              <>
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <GroupManager 
+                    groups={groups} 
+                    onRemove={handleRemove} 
+                    onMoveToGroup={handleMoveToGroup}
+                  />
+                </div>
+                
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <BuffTracker roster={roster} groups={groups} />
+                </div>
+              </>
             )}
           </div>
         </div>
