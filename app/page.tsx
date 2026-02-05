@@ -6,7 +6,8 @@ import { BuffTracker } from "@/components/buff-tracker"
 import { GroupManager } from "@/components/group-manager"
 import { type Spec, BUFFS, DEBUFFS, SPECS } from "@/lib/tbc-data"
 import { Button } from "@/components/ui/button"
-import { Trash2, RotateCcw, Sword, Download, Upload } from "lucide-react"
+import { Trash2, RotateCcw, Sword, Download, Upload, Megaphone } from "lucide-react"
+import changelogData from "@/lib/changelog.json"
 
 export default function RaidCompEditor() {
   // Groups structure: array of 5 groups, each containing up to 5 players
@@ -233,6 +234,34 @@ export default function RaidCompEditor() {
                   onChange={handleImport}
                   className="hidden"
                 />
+              </div>
+            </div>
+
+            {/* Latest Changes Section */}
+            <div className="bg-card border border-border rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Megaphone className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-foreground">Latest Changes</h2>
+              </div>
+              <div className="space-y-3 text-sm">
+                {changelogData.releases.map((release) => (
+                  <div
+                    key={release.version}
+                    className={`border-l-2 pl-3 ${
+                      release.isLatest ? "border-primary" : "border-muted"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-foreground">v{release.version}</span>
+                      <span className="text-xs text-muted-foreground">{release.date}</span>
+                    </div>
+                    <ul className="space-y-1 text-muted-foreground text-xs">
+                      {release.changes.map((change, index) => (
+                        <li key={index}>• {change}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
               </div>
             </div>
           </aside>
