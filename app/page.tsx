@@ -147,7 +147,7 @@ export default function RaidCompEditor() {
   const debuffCoverage = Math.round((coveredDebuffs.size / DEBUFFS.length) * 100)
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card/50 sticky top-0 z-40 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">

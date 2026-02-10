@@ -36,9 +36,16 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`font-sans antialiased`}>
-        {children}
+    <html lang="en" className="overflow-x-hidden">
+      <body className={`font-sans antialiased overflow-x-hidden w-full`}>
+        <div className="min-h-screen flex flex-col w-full">
+          <main className="flex-1 w-full">
+            {children}
+          </main>
+          <footer className="py-6 text-center text-sm text-muted-foreground border-t w-full">
+            <p>© {new Date().getFullYear()} KougatSundew. All rights reserved.</p>
+          </footer>
+        </div>
         <Analytics />
       </body>
     </html>

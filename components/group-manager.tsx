@@ -143,6 +143,9 @@ export function GroupManager({ groups, onRemove, onMoveToGroup }: GroupManagerPr
           <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-medium">
             <Lightbulb className="h-4 w-4" />
             <span>Optimization Suggestions</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-normal">
+              WIP
+            </span>
           </div>
           <ul className="space-y-1 text-sm text-blue-700 dark:text-blue-300">
             {suggestions.map((suggestion, i) => (

@@ -103,14 +103,14 @@ function BuffCard({
         <TooltipContent 
           side="top" 
           className={cn(
-            "max-w-xs p-4 text-sm",
+            "max-w-xs p-4 text-sm bg-popover/95 backdrop-blur-sm shadow-lg",
             isDebuff ? "border-destructive/50" : "border-primary/50"
           )}
         >
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className={cn(
-                "font-bold",
+                "font-bold text-base",
                 isDebuff ? "text-destructive" : "text-primary"
               )}>
                 {buff.name}
@@ -122,17 +122,19 @@ function BuffCard({
                 {buff.category}
               </span>
             </div>
-            <p className="text-muted-foreground leading-relaxed">
+            <p className="text-foreground leading-relaxed">
               {buff.effect}
             </p>
             {!isCovered && (
               <div className="pt-2 border-t border-border">
-                <p className="text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">Provided by:</span>{" "}
-                  {buff.providedBy.map((specId) => {
-                    const spec = SPECS_MAP[specId]
-                    return spec ? `${spec.name} ${spec.class.charAt(0).toUpperCase() + spec.class.slice(1)}` : specId
-                  }).join(", ")}
+                <p className="text-xs">
+                  <span className="font-semibold text-foreground">Provided by:</span>{" "}
+                  <span className="text-foreground/90">
+                    {buff.providedBy.map((specId) => {
+                      const spec = SPECS_MAP[specId]
+                      return spec ? `${spec.name} ${spec.class.charAt(0).toUpperCase() + spec.class.slice(1)}` : specId
+                    }).join(", ")}
+                  </span>
                 </p>
               </div>
             )}

@@ -1,9 +1,17 @@
 {
   "releases": [
     {
+      "version": "1.2.1",
+      "date": "Feb 10, 2026",
+      "isLatest": true,
+      "changes": [
+        "Updated buff/debuff card visibility"
+      ]
+    },
+    {
       "version": "1.2.0",
       "date": "Feb 5, 2026",
-      "isLatest": true,
+      "isLatest": false,
       "changes": [
         "Group-specific buff tracking",
         "Smart optimization suggestions",
